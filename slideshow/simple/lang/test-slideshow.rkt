@@ -2,7 +2,7 @@
 
 slideshow/simple
 
-@image.jpg
+!image.jpg
 
 depends on
 - Racket
@@ -13,6 +13,6 @@ slideshow FILENAME
 
 \
 
-\@IMAGE.png
+!IMAGE.png
 
 thanks / questions?

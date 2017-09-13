@@ -26,7 +26,7 @@
 (define (make-paragraph-slide line location)
   (-paragraph-slide (list line) location))
 
-(define(add-to-paragraph p line)
+(define (add-to-paragraph p line)
   (define lines (paragraph-slide-lines p))
   (struct-copy paragraph-slide p
                [lines (append lines (list line))]))

@@ -9,7 +9,7 @@ An example slideshow looks like this (Note that the this #lang line doesn't quit
 
 slideshow/simple
 
-@image.jpg
+!image.jpg
 
 # comment line, ignored
 
@@ -20,7 +20,7 @@ depends on
 slideshow FILENAME
 \#lang reader slideshow/simple
 
-\@IMAGE.png
+\!IMAGE.png
 
 thanks / questions?
 ```
@@ -40,7 +40,7 @@ A slide cannot contain both an image and text. Therefore, the following slidesho
 ```
 #lang reader slideshow/simple
 
-@image.jpg
+!image.jpg
 foo bar baz quux
 ```
 
@@ -57,7 +57,7 @@ sent doesn't have an answer for speaker notes, but Slideshow does.
 We'll use the following syntax:
 
 ```
-@image.png
+!image.png
 # These are the speaker notes.
 # You can have multiple lines of speaker notes, and that's not a big deal.
 
@@ -94,7 +94,6 @@ We'll render basic formatting inspired by markdown.
 - _italics_
 - ~strike-through~
 - `monospace`
-
 
 ## Contributing and Feedback
 
