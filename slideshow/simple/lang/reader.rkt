@@ -9,6 +9,10 @@
 (provide (rename-out [simple-read-syntax read-syntax])
          parse)
 
+
+(define current-location (make-parameter #f))
+(define current-path (make-parameter #f))
+
 ;; when eof, return the current nodes
 ;; when the line starts with a `@` we make an image node.
 ;; when the line starts with a `\` we make a literal node with whatever after the next line.
@@ -37,49 +41,82 @@
 (define (literal-line? line)
   (string-prefix? line "\\"))
 
+
+(define (cont-empty-slide slides line)
+  (cond
+   [(image-line? line)
+    (cons (make-image-slide (substring line 1) (current-location))
+          (cdr slides))]
+   [(literal-line? line)
+    (cons (make-paragraph-slide (substring line 1) (current-location))
+          (cdr slides))]
+   [(non-empty-string? (string-trim line))
+    (cons (make-paragraph-slide line (current-location))
+          (cdr slides))]
+   [else slides]))
+
+(define (cont-image-slide slides line)
+  (cond
+   [(comment-line? line)
+    (cons (image-slide-notes-append (car slides) (substring line 1))
+          (cdr slides))]
+   [(non-empty-string? (string-trim line))
+    (raise-read-error "can't add to an image slide"
+                      (current-path)
+                      (location-line (current-location))
+                      (location-column (current-location))
+                      0 1)]
+   [else (cons empty-slide slides)]))
+
+(define (cont-paragraph-slide slides line)
+  (cond
+   [(comment-line? line)
+    (cons (paragraph-slide-notes-append (car slides) (substring line 1))
+          (cdr slides))]
+   [(literal-line? line)
+    (cons (paragraph-slide-append (car slides) (substring line 1))
+          (cdr slides))]
+   [(non-empty-string? (string-trim line))
+    (cons (paragraph-slide-append (car slides) (string-trim line))
+          (cdr slides))]
+   [else
+    (if (non-empty-string? (string-trim line))
+        (raise-read-error "can't add unknown to a paragraph slide"
+                          (current-path)
+                          (location-line (current-location))
+                          (location-column (current-location))
+                          0 1)
+        (cons empty-slide slides))]))
+
 (define (parse path port)
-  (for/fold ([slides (list empty-slide)])
-            ([line-no-col (in-positioned-port port 'any)])
-    (define-values (line no col pos) (apply values line-no-col))
-    (define loc (location no col))
-    (cond
-     [(comment-line? line) slides]
-     [(empty-slide? (car slides))
-      (cond
-       [(image-line? line) (cons (image-slide (substring line 1) loc)
-                                 (cdr slides))]
-       [(literal-line? line) (cons (make-paragraph-slide (substring line 1) loc)
-                                   (cdr slides))]
-       [(non-empty-string? (string-trim line)) (cons (make-paragraph-slide line loc)
-                                                     (cdr slides))]
-       [else slides])]
-     [(image-slide? (car slides))
-      (if (non-empty-string? (string-trim line))
-          (raise-read-error "can't add to an image slide" path no col pos 1)
-          (cons empty-slide slides))]
-     [(paragraph-slide? (car slides))
-      (cond
-       [(literal-line? line) (cons (add-to-paragraph (car slides) (substring line 1))
-                                   (cdr slides))]
-       [(non-empty-string? (string-trim line)) (cons (add-to-paragraph (car slides) (string-trim line))
-                                                     (cdr slides))]
-       [else
-        (if (non-empty-string? (string-trim line))
-            (raise-read-error "can't add unknown to a paragraph slide" path no col pos 1)
-            (cons empty-slide slides))])]
-     [else
-      (raise-read-error "unable to parse line" path no col pos 1)])))
+  (parameterize ([current-path path])
+    (for/fold ([slides (list empty-slide)])
+        ([line-no-col (in-positioned-port port 'any)])
+      (define-values (line no col pos) (apply values line-no-col))
+      (parameterize ([current-location (location no col)])
+       (cond
+        [(empty-slide? (car slides)) (cont-empty-slide slides line)]
+        [(image-slide? (car slides)) (cont-image-slide slides line)]
+        [(paragraph-slide? (car slides)) (cont-paragraph-slide slides line)]
+        [(comment-line? line) slides]
+        [else
+         (raise-read-error "unable to parse line" (current-path) no col pos 1)]))))
+)
 
 (define (nodes->slides nodes)
   (for/list ([node (reverse nodes)]
              #:unless (empty-slide? node))
     (cond
-     [(image-slide? node) `(slide #:title ""
-                                  (bitmap ,(image-slide-path node)))]
-     [(paragraph-slide? node) `(slide #:title ""
-                                      ,@(map (lambda (x)
-                                               `(t ,x))
-                                             (paragraph-slide-lines node)))]
+     [(image-slide? node)
+      `(slide #:title ""
+              (bitmap ,(image-slide-path node))
+              (comment ,(string-trim (string-join (image-slide-notes node) "\n"))))]
+     [(paragraph-slide? node)
+      `(slide #:title ""
+              ,@(map (lambda (x)
+                       `(t ,x))
+                     (paragraph-slide-lines node))
+              (comment ,(string-trim (string-join (paragraph-slide-notes node) "\n"))))]
      [else (error 'unknown-node)])))
 
 (define (simple-read-syntax path port)

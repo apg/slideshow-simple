@@ -31,11 +31,17 @@ And, it can be run like so:
 $ slideshow filename.rkt
 ```
 
-To add an image, use `@/path/to/image`, and to add a slide with some text, just write some stuff followed by a blank line. Multiple lines of text without blank lines will place all the text on a single slide. 
+To add an image, use `!/path/to/image`, and to add a slide with some
+text, just write some stuff followed by a blank line. Multiple lines
+of text without blank lines will place all the text on a single slide.
 
-A line that starts with a `#` character is completely ignored. If a comment line comes immediately after an image or a paragraph, the comment counts as a blank line, and a new slide will be created for the next non blank/non comment line.
+A line that starts with a `#` character is completely ignored. If a
+comment line comes immediately after an image or a paragraph, the
+comment counts as a blank line, and a new slide will be created for
+the next non blank/non comment line.
 
-A slide cannot contain both an image and text. Therefore, the following slideshow is invalid:
+A slide cannot contain both an image and text. Therefore, the
+following slideshow is invalid:
 
 ```
 #lang reader slideshow/simple
@@ -44,11 +50,15 @@ A slide cannot contain both an image and text. Therefore, the following slidesho
 foo bar baz quux
 ```
 
-If a slide starts with a `\` the `\` is ignored. This allows escaping literal `@IMAGE.png`, lines that would otherwise by treated as `# comments`, and `\` literal escaped lines.
+If a slide starts with a `\` the `\` is ignored. This allows escaping
+literal `!IMAGE.png`, lines that would otherwise by treated as 
+`# comments` comments`, and `\` literal escaped lines.
 
 ## Extensions (to be added)
 
-While the `sent` tool provides the very bare minimum, there are a few extensions that this language will support to make giving actual presentations a little bit nicer.
+While the `sent` tool provides the very bare minimum, there are a few
+extensions that this language will support to make giving actual
+presentations a little bit nicer.
 
 ### Speaker Notes
 
