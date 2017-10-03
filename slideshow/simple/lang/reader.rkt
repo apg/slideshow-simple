@@ -32,7 +32,7 @@
   (string-prefix? line "#"))
 
 (define (image-line? line)
-  (string-prefix? line "@"))
+  (string-prefix? line "!"))
 
 (define (literal-line? line)
   (string-prefix? line "\\"))
