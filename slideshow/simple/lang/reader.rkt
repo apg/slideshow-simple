@@ -15,7 +15,7 @@
 
 ;; when eof, return the current nodes
 ;; when the line starts with a `@` we make an image node.
-;; when the line starts with a `\` we make a literal node with whatever after the next line.
+;; when the line starts with a `\` we make a literal node with whatever aftenr the next line.
 ;; when the line starts with a `#` we ignore the line as a comment.
 ;; when the line is blank, we commit the current node to the list of nodes.
 ;; when there is a current paragraph node, and there is an image, it is a syntax error.
@@ -108,9 +108,9 @@
              #:unless (empty-slide? node))
     (cond
      [(image-slide? node)
-      `(slide #:title ""
-              (bitmap ,(image-slide-path node))
-              (comment ,(string-trim (string-join (image-slide-notes node) "\n"))))]
+      `(slide (scale-to-fit (bitmap ,(image-slide-path node)) (client-w) (client-h) #:mode 'preserve)
+              (comment ,(string-trim (string-join (image-slide-notes node))))
+              )]
      [(paragraph-slide? node)
       `(slide #:title ""
               ,@(map (lambda (x)
@@ -126,4 +126,5 @@
    #f
    `(module my-slides slideshow
       (require pict)
+      (require slideshow/simple/utils)
       ,@slides)))
