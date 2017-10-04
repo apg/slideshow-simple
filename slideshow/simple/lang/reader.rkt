@@ -41,12 +41,29 @@
 (define (literal-line? line)
   (string-prefix? line "\\"))
 
+(define (quotation-line? line)
+  (string-prefix? line ">"))
+
+(define (quotation-citation-line? line)
+  (string-prefix? line "> --"))
+
+(define (abort msg)
+    (raise-read-error msg
+                      (current-path)
+                      (location-line (current-location))
+                      (location-column (current-location))
+                      0 1))
 
 (define (cont-empty-slide slides line)
   (cond
    [(image-line? line)
     (cons (make-image-slide (substring line 1) (current-location))
           (cdr slides))]
+   [(quotation-line? line)
+    (cons (make-quotation-slide (substring line 2) (current-location))
+          (cdr slides))]
+   [(quotation-citation-line? line)
+    (abort "can't cite non-existant quote")]
    [(literal-line? line)
     (cons (make-paragraph-slide (substring line 1) (current-location))
           (cdr slides))]
@@ -61,11 +78,7 @@
     (cons (image-slide-notes-append (car slides) (substring line 1))
           (cdr slides))]
    [(non-empty-string? (string-trim line))
-    (raise-read-error "can't add to an image slide"
-                      (current-path)
-                      (location-line (current-location))
-                      (location-column (current-location))
-                      0 1)]
+    (abort "can't add to an image slide")]
    [else (cons empty-slide slides)]))
 
 (define (cont-paragraph-slide slides line)
@@ -81,12 +94,26 @@
           (cdr slides))]
    [else
     (if (non-empty-string? (string-trim line))
-        (raise-read-error "can't add unknown to a paragraph slide"
-                          (current-path)
-                          (location-line (current-location))
-                          (location-column (current-location))
-                          0 1)
+        (abort "can't add unknown to a paragraph slide")
         (cons empty-slide slides))]))
+
+(define (cont-quotation-slide slides line)
+  (cond
+   [(comment-line? line)
+    (cons (quotation-slide-notes-append (car slides) (substring line 1))
+          (cdr slides))]
+   [(quotation-line? line)
+    (cons (quotation-slide-append (car slides) (substring line 2))
+          (cdr slides))]
+   [(quotation-citation-line? line)
+    (cons (struct-copy quotation-slide (car slides)
+                       [citation (substring line 2)])
+          (cdr slides))]
+   [else
+    (if (non-empty-string? (string-trim line))
+        (abort "can't add unknown to a quote slide")
+        (cons empty-slide slides))]))
+
 
 (define (parse path port)
   (parameterize ([current-path path])
@@ -97,26 +124,56 @@
        (cond
         [(empty-slide? (car slides)) (cont-empty-slide slides line)]
         [(image-slide? (car slides)) (cont-image-slide slides line)]
+        [(quotation-slide? (car slides))
+         (cont-quotation-slide slides line)]
         [(paragraph-slide? (car slides)) (cont-paragraph-slide slides line)]
         [(comment-line? line) slides]
         [else
-         (raise-read-error "unable to parse line" (current-path) no col pos 1)]))))
-)
+         (abort "unable to parse line")]))))
+  )
+
+(define (render-notes node accessor)
+  (list 'comment
+        (string-trim (string-join (accessor node) "\n"))))
+
+
+(define (stage-image-slide node)
+  `(slide (scale-to-fit (bitmap
+                         ,(image-slide-path node))
+                        (client-w)
+                        (client-h)
+                        #:mode 'preserve)
+          ,(render-notes node image-slide-notes)))
+
+(define (stage-paragraph-slide node)
+  (if (> (length (paragraph-slide-lines node)) 1)
+      `(slide
+        (para #:fill? #t
+              #:align 'left
+              ,(string-join (paragraph-slide-lines node) "\n"))
+        ,(render-notes node paragraph-slide-notes))
+      `(slide
+        (para #:fill? #t
+              #:align 'center
+              ,(string-join (paragraph-slide-lines node) "\n"))
+        ,(render-notes node paragraph-slide-notes))))
+
+(define (stage-quotation-slide node)
+  `(slide
+    (parameterize ([current-main-font (cons 'italic (current-main-font))])
+      (para #:fill? #t
+            #:align 'center
+            ,(string-join (quotation-slide-lines node) "\n")))
+    (para #:align 'right ,(quotation-slide-citation node))
+    ,(render-notes node quotation-slide-notes)))
 
 (define (nodes->slides nodes)
   (for/list ([node (reverse nodes)]
              #:unless (empty-slide? node))
     (cond
-     [(image-slide? node)
-      `(slide (scale-to-fit (bitmap ,(image-slide-path node)) (client-w) (client-h) #:mode 'preserve)
-              (comment ,(string-trim (string-join (image-slide-notes node))))
-              )]
-     [(paragraph-slide? node)
-      `(slide #:title ""
-              ,@(map (lambda (x)
-                       `(t ,x))
-                     (paragraph-slide-lines node))
-              (comment ,(string-trim (string-join (paragraph-slide-notes node) "\n"))))]
+     [(image-slide? node) (stage-image-slide node)]
+     [(paragraph-slide? node) (stage-paragraph-slide node)]
+     [(quotation-slide? node) (stage-quotation-slide node)]
      [else (error 'unknown-node)])))
 
 (define (simple-read-syntax path port)
