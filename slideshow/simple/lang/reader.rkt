@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require syntax/readerr
+         racket/match
          racket/string
          racket/stream
          racket/contract
@@ -41,6 +42,18 @@
 (define (literal-line? line)
   (string-prefix? line "\\"))
 
+(define (bullet-line? line)
+  (string-prefix? line "* "))
+
+(define (numeric-line? line)
+  (regexp-match? #px"^[0-9]+. " line))
+
+(define (strip-numlist-prefix s)
+  (match (string-split s "." #:repeat? #f)
+    [(list _ item) (string-trim item)]
+    [(list item) (string-trim item)]
+    [_ (abort "unknown numeric list prefix")]))
+
 (define (quotation-line? line)
   (string-prefix? line ">"))
 
@@ -64,6 +77,16 @@
           (cdr slides))]
    [(quotation-citation-line? line)
     (abort "can't cite non-existant quote")]
+   [(bullet-line? line)
+    (cons (make-list-slide (string-trim (substring line 2))
+                           'bullet
+                           (current-location))
+          (cdr slides))]
+   [(numeric-line? line)
+    (cons (make-list-slide (strip-numlist-prefix line)
+                           'numeric
+                           (current-location))
+          (cdr slides))]
    [(literal-line? line)
     (cons (make-paragraph-slide (substring line 1) (current-location))
           (cdr slides))]
@@ -81,6 +104,27 @@
     (abort "can't add to an image slide")]
    [else (cons empty-slide slides)]))
 
+(define (cont-list-slide slides line)
+  (cond
+   [(comment-line? line)
+    (cons (list-slide-notes-append (car slides) (substring line 1))
+          (cdr slides))]
+   [(bullet-line? line)
+    (if (eq? 'bullet (list-slide-type (car slides)))
+        (cons
+         (list-slide-append (car slides)  (substring line 2))
+         (cdr slides))
+        (abort "can't append numeric list item to bullet list slide."))]
+   [(numeric-line? line)
+    (if (eq? 'numeric (list-slide-type (car slides)))
+        (cons
+         (list-slide-append (car slides) (strip-numlist-prefix line))
+         (cdr slides))
+        (abort "can't append bullet list item to numeric list slide."))]
+   [(non-empty-string? (string-trim line))
+    (abort "improper addition to a list slide")]
+   [else (cons empty-slide slides)]))
+
 (define (cont-paragraph-slide slides line)
   (cond
    [(comment-line? line)
@@ -92,22 +136,19 @@
    [(non-empty-string? (string-trim line))
     (cons (paragraph-slide-append (car slides) (string-trim line))
           (cdr slides))]
-   [else
-    (if (non-empty-string? (string-trim line))
-        (abort "can't add unknown to a paragraph slide")
-        (cons empty-slide slides))]))
+   [else (cons empty-slide slides)]))
 
 (define (cont-quotation-slide slides line)
   (cond
    [(comment-line? line)
     (cons (quotation-slide-notes-append (car slides) (substring line 1))
           (cdr slides))]
-   [(quotation-line? line)
-    (cons (quotation-slide-append (car slides) (substring line 2))
-          (cdr slides))]
    [(quotation-citation-line? line)
     (cons (struct-copy quotation-slide (car slides)
                        [citation (substring line 2)])
+          (cdr slides))]
+   [(quotation-line? line)
+    (cons (quotation-slide-append (car slides) (substring line 2))
           (cdr slides))]
    [else
     (if (non-empty-string? (string-trim line))
@@ -129,8 +170,7 @@
         [(paragraph-slide? (car slides)) (cont-paragraph-slide slides line)]
         [(comment-line? line) slides]
         [else
-         (abort "unable to parse line")]))))
-  )
+         (abort "unable to parse line")])))))
 
 (define (render-notes node accessor)
   (list 'comment
@@ -150,13 +190,16 @@
       `(slide
         (para #:fill? #t
               #:align 'left
-              ,(string-join (paragraph-slide-lines node) "\n"))
+              ,(string-join (paragraph-slide-lines node) " "))
         ,(render-notes node paragraph-slide-notes))
       `(slide
         (para #:fill? #t
               #:align 'center
-              ,(string-join (paragraph-slide-lines node) "\n"))
+              ,(string-join (paragraph-slide-lines node) " "))
         ,(render-notes node paragraph-slide-notes))))
+
+(define (stage-list-slide node)
+  `(slide (text "LIST FPO")))
 
 (define (stage-quotation-slide node)
   `(slide
@@ -171,8 +214,9 @@
   (for/list ([node (reverse nodes)]
              #:unless (empty-slide? node))
     (cond
-     [(image-slide? node) (stage-image-slide node)]
      [(paragraph-slide? node) (stage-paragraph-slide node)]
+     [(image-slide? node) (stage-image-slide node)]
+     [(list-slide? node) (stage-list-slide node)]
      [(quotation-slide? node) (stage-quotation-slide node)]
      [else (error 'unknown-node)])))
 

@@ -17,6 +17,10 @@
                                    (citation string?)
                                    (notes (listof string?))
                                    (location location?))]
+          [struct list-slide ((items (listof string?))
+                              (type (one-of/c 'bullet 'numeric))
+                              (notes (listof string?))
+                              (location location?))]
           [make-image-slide (-> path-string?
                                 location?
                                 image-slide?)]
@@ -26,12 +30,19 @@
           [make-quotation-slide (-> string?
                                     location?
                                     quotation-slide?)]
+          [make-list-slide (-> string?
+                               (one-of/c 'bullet 'numeric)
+                               location?
+                               list-slide?)]
           [paragraph-slide-append (-> paragraph-slide?
                                       string?
                                       paragraph-slide?)]
           [quotation-slide-append (-> quotation-slide?
                                       string?
                                       quotation-slide?)]
+          [list-slide-append (-> list-slide?
+                                 string?
+                                 list-slide?)]
 
           [image-slide-notes-append (-> image-slide?
                                         string?
@@ -42,6 +53,9 @@
           [quotation-slide-notes-append (-> quotation-slide?
                                             string?
                                             quotation-slide?)]
+          [list-slide-notes-append (-> list-slide?
+                                       string?
+                                       list-slide?)]
           )
 
          empty-slide
@@ -82,6 +96,17 @@
 (define (make-quotation-slide line location)
   (-quotation-slide (list (string-trim line)) "" (list "") location))
 
+(struct list-slide (items type notes location)
+        #:constructor-name -list-slide
+        #:transparent)
+
+(define (list-slide-append p item)
+  (define items (list-slide-items p))
+  (struct-copy list-slide p
+               [items (append items (list item))]))
+
+(define (make-list-slide item type location)
+  (-list-slide (list (string-trim item)) type (list "") location))
 
 (define-syntax-rule (make-slide-notator name accessor type)
   (define (name node line)
@@ -98,6 +123,11 @@
 (make-slide-notator quotation-slide-notes-append
                     quotation-slide-notes
                     quotation-slide)
+(make-slide-notator list-slide-notes-append
+                    list-slide-notes
+                    list-slide)
+
+
 
 (define empty-slide (make-paragraph-slide "" (location 0 0)))
 
