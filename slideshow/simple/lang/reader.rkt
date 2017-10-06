@@ -6,6 +6,7 @@
          racket/stream
          racket/contract
          slideshow
+         slideshow/text
          pict
          "./nodes.rkt")
 
@@ -16,13 +17,7 @@
 (define current-location (make-parameter #f))
 (define current-path (make-parameter #f))
 
-;; when eof, return the current nodes
-;; when the line starts with a `@` we make an image node.
-;; when the line starts with a `\` we make a literal node with whatever aftenr the next line.
-;; when the line starts with a `#` we ignore the line as a comment.
-;; when the line is blank, we commit the current node to the list of nodes.
-;; when there is a current paragraph node, and there is an image, it is a syntax error.
-;; when there is a current paragraph node, and there is a comment, the comment is ignored and the node is committed.
+(define base-font-size 48)
 
 (define/contract (in-positioned-port port mode)
   (-> input-port? (or/c 'linefeed 'return 'linefeed-return 'any 'any-one) stream?)
@@ -189,6 +184,7 @@
       (define-values (line no col pos) (apply values line-no-col))
       (parameterize ([current-location (location no col)])
        (cond
+        [(comment-line? line) slides]
         [(empty-slide? (car slides)) (cont-empty-slide slides line)]
         [(image-slide? (car slides)) (cont-image-slide slides line)]
         [(quotation-slide? (car slides))
@@ -197,7 +193,6 @@
          (cont-list-slide slides line)]
         [(verbatim-slide? (car slides)) (cont-verbatim-slide slides line)]
         [(paragraph-slide? (car slides)) (cont-paragraph-slide slides line)]
-        [(comment-line? line) slides]
         [else
          (abort "unable to parse line")])))))
 
@@ -218,9 +213,10 @@
   (define paragraphs (paragraph-slide-lines node))
   (define alignment (if (> (length paragraphs) 1) 'left 'center))
   (define (itemize p)
-    (para #:fill? #t
-          #:align alignment
-          p))
+    `(with-size ,base-font-size
+        (para #:fill? #t
+              #:align ',alignment
+              ,p)))
   `(slide
     ,@(for/list ([p paragraphs])
         (itemize p))
@@ -228,15 +224,16 @@
 
 (define (stage-list-slide node)
   (define (itemize text bullet)
-    `(item #:bullet ,bullet
-           #:align 'left
-           #:fill? #t
-           ,text))
+    `(with-size ,base-font-size
+        (item #:bullet ,bullet
+              #:align 'left
+              #:fill? #t
+              ,text)))
   (define (bullets-for-items items type)
     (for/list ([(_ i) (in-indexed items)])
       (if (eq? type 'bullet)
-          bullet
-          (t (format "~a." i)))))
+          'bullet
+          `(with-size ,base-font-size (t ,(format "~a." (add1 i)))))))
   (define items (list-slide-items node))
   `(slide
     ,@(for/list ([item items]
@@ -247,10 +244,11 @@
 (define (stage-quotation-slide node)
   `(slide
     (parameterize ([current-main-font (cons 'italic (current-main-font))])
-      (para #:fill? #t
-            #:align 'center
-            ,(format "``~a''"
-                     (string-join (quotation-slide-lines node) "\n"))))
+      (with-size ,base-font-size
+         (para #:fill? #t
+             #:align 'center
+             ,(format "``~a''"
+                      (string-join (quotation-slide-lines node) "\n")))))
     (para #:align 'right ,(quotation-slide-citation node))
     ,(render-notes node quotation-slide-notes)))
 
@@ -276,5 +274,5 @@
    #f
    `(module my-slides slideshow
       (require pict)
-      (require slideshow/simple/utils)
+      (require slideshow/text)
       ,@slides)))
