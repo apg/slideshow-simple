@@ -37,5 +37,5 @@
               'multiple-image-blank-paragraph)
 (expect-read? "!foo.png\n#comment\n\nparagraph"
               (list (make-paragraph-slide "paragraph" (location 4 0))
-                    (make-image-slide "foo.png" (location 1 0)))
-              'multiple-image-comment-blank-paragraph)
+                    (-image-slide "foo.png" '("comment") (location 1 0)))
+              'image-with-speaker-notes-paragraph)

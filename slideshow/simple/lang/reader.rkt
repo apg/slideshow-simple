@@ -94,6 +94,7 @@
     (cons (make-verbatim-slide
            (read-verbatim (substring line 1)) (current-location))
           (cdr slides))]
+   [(comment-line? line) slides]
    [(non-empty-string? (string-trim line))
     (cons (make-paragraph-slide line (current-location))
           (cdr slides))]

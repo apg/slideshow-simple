@@ -79,14 +79,14 @@
         #:transparent)
 
 (define (make-image-slide path location)
-  (-image-slide path (list "") location))
+  (-image-slide path '() location))
 
 (struct paragraph-slide (lines notes location)
         #:constructor-name -paragraph-slide
         #:transparent)
 
 (define (make-paragraph-slide line location)
-  (-paragraph-slide (list (string-trim line)) (list "") location))
+  (-paragraph-slide (list (string-trim line)) '() location))
 
 
 (define (paragraph-slide-append p line)
@@ -104,7 +104,7 @@
                [lines (append lines (list line))]))
 
 (define (make-quotation-slide line location)
-  (-quotation-slide (list (string-trim line)) "" (list "") location))
+  (-quotation-slide (list (string-trim line)) "" '() location))
 
 (struct list-slide (items type notes location)
         #:constructor-name -list-slide
@@ -116,7 +116,7 @@
                [items (append items (list item))]))
 
 (define (make-list-slide item type location)
-  (-list-slide (list (string-trim item)) type (list "") location))
+  (-list-slide (list (string-trim item)) type '() location))
 
 (struct verbatim-slide (accum location)
         #:constructor-name -verbatim-slide
@@ -134,7 +134,9 @@
   (define (name node line)
     (define notes (accessor node))
     (struct-copy type node
-                 [notes (append notes (list line))])))
+                 [notes (if (null? notes)
+                            (cons line notes)
+                            (append notes (list line)))])))
 
 (make-slide-notator paragraph-slide-notes-append
                     paragraph-slide-notes
