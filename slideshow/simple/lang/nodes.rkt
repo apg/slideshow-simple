@@ -21,6 +21,9 @@
                               (type (one-of/c 'bullet 'numeric))
                               (notes (listof string?))
                               (location location?))]
+          [struct verbatim-slide ((accum list?)
+                                  (location location?))]
+
           [make-image-slide (-> path-string?
                                 location?
                                 image-slide?)]
@@ -34,6 +37,9 @@
                                (one-of/c 'bullet 'numeric)
                                location?
                                list-slide?)]
+          [make-verbatim-slide (-> list?
+                                   location?
+                                   verbatim-slide?)]
           [paragraph-slide-append (-> paragraph-slide?
                                       string?
                                       paragraph-slide?)]
@@ -43,6 +49,10 @@
           [list-slide-append (-> list-slide?
                                  string?
                                  list-slide?)]
+
+          [verbatim-slide-append (-> verbatim-slide?
+                                 list?
+                                 verbatim-slide?)]
 
           [image-slide-notes-append (-> image-slide?
                                         string?
@@ -108,6 +118,18 @@
 (define (make-list-slide item type location)
   (-list-slide (list (string-trim item)) type (list "") location))
 
+(struct verbatim-slide (accum location)
+        #:constructor-name -verbatim-slide
+        #:transparent)
+
+(define (verbatim-slide-append v item)
+  (define accum (verbatim-slide-accum v))
+  (struct-copy verbatim-slide v
+               [accum (append accum (list item))]))
+
+(define (make-verbatim-slide accum location)
+  (-verbatim-slide (list accum) location))
+
 (define-syntax-rule (make-slide-notator name accessor type)
   (define (name node line)
     (define notes (accessor node))
@@ -126,8 +148,6 @@
 (make-slide-notator list-slide-notes-append
                     list-slide-notes
                     list-slide)
-
-
 
 (define empty-slide (make-paragraph-slide "" (location 0 0)))
 

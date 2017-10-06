@@ -5,6 +5,8 @@
          racket/string
          racket/stream
          racket/contract
+         slideshow
+         pict
          "./nodes.rkt")
 
 (provide (rename-out [simple-read-syntax read-syntax])
@@ -48,6 +50,9 @@
 (define (numeric-line? line)
   (regexp-match? #px"^[0-9]+. " line))
 
+(define (verbatim-line? line)
+  (string-prefix? line "@"))
+
 (define (strip-numlist-prefix s)
   (match (string-split s "." #:repeat? #f)
     [(list _ item) (string-trim item)]
@@ -89,6 +94,10 @@
           (cdr slides))]
    [(literal-line? line)
     (cons (make-paragraph-slide (substring line 1) (current-location))
+          (cdr slides))]
+   [(verbatim-line? line)
+    (cons (make-verbatim-slide
+           (read-verbatim (substring line 1)) (current-location))
           (cdr slides))]
    [(non-empty-string? (string-trim line))
     (cons (make-paragraph-slide line (current-location))
@@ -155,6 +164,23 @@
         (abort "can't add unknown to a quote slide")
         (cons empty-slide slides))]))
 
+(define (read-verbatim line)
+  (define (handler e)
+    (abort (format "read error in verbatim: ~a" e)))
+  (with-handlers ([exn:fail:read? handler])
+    (read (open-input-string line))))
+
+(define (cont-verbatim-slide slides line)
+  (cond
+   [(comment-line? line) slides]
+   [(verbatim-line? line)
+    (cons (verbatim-slide-append (car slides)
+                                 (read-verbatim (substring line 1)))
+          (cdr slides))]
+   [else
+    (if (non-empty-string? (string-trim line))
+        (abort "can't add unknown to a verbatim slide")
+        (cons empty-slide slides))]))
 
 (define (parse path port)
   (parameterize ([current-path path])
@@ -228,6 +254,9 @@
     (para #:align 'right ,(quotation-slide-citation node))
     ,(render-notes node quotation-slide-notes)))
 
+(define (stage-verbatim-slide node)
+  `(begin ,@(verbatim-slide-accum node)))
+
 (define (nodes->slides nodes)
   (for/list ([node (reverse nodes)]
              #:unless (empty-slide? node))
@@ -236,11 +265,13 @@
      [(image-slide? node) (stage-image-slide node)]
      [(list-slide? node) (stage-list-slide node)]
      [(quotation-slide? node) (stage-quotation-slide node)]
+     [(verbatim-slide? node) (stage-verbatim-slide node)]
      [else (error 'unknown-node)])))
 
 (define (simple-read-syntax path port)
   (define nodes (parse path port))
   (define slides (nodes->slides nodes))
+
   (datum->syntax
    #f
    `(module my-slides slideshow
