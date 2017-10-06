@@ -183,8 +183,7 @@
         ([line-no-col (in-positioned-port port 'any)])
       (define-values (line no col pos) (apply values line-no-col))
       (parameterize ([current-location (location no col)])
-       (cond
-        [(comment-line? line) slides]
+        (cond
         [(empty-slide? (car slides)) (cont-empty-slide slides line)]
         [(image-slide? (car slides)) (cont-image-slide slides line)]
         [(quotation-slide? (car slides))
@@ -193,12 +192,13 @@
          (cont-list-slide slides line)]
         [(verbatim-slide? (car slides)) (cont-verbatim-slide slides line)]
         [(paragraph-slide? (car slides)) (cont-paragraph-slide slides line)]
+        [(comment-line? line) (begin (display "WOOOT") slides)]
         [else
          (abort "unable to parse line")])))))
 
 (define (render-notes node accessor)
-  (list 'comment
-        (string-trim (string-join (accessor node) "\n"))))
+  `(comment
+    ,(string-trim (string-join (accessor node) "\n"))))
 
 
 (define (stage-image-slide node)
