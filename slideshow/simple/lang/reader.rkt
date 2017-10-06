@@ -43,7 +43,7 @@
   (string-prefix? line "\\"))
 
 (define (bullet-line? line)
-  (string-prefix? line "* "))
+  (string-prefix? line "- "))
 
 (define (numeric-line? line)
   (regexp-match? #px"^[0-9]+. " line))
@@ -65,7 +65,7 @@
                       (current-path)
                       (location-line (current-location))
                       (location-column (current-location))
-                      0 1))
+                      1 1))
 
 (define (cont-empty-slide slides line)
   (cond
@@ -167,6 +167,9 @@
         [(image-slide? (car slides)) (cont-image-slide slides line)]
         [(quotation-slide? (car slides))
          (cont-quotation-slide slides line)]
+        [(list-slide? (car slides))
+         (cont-list-slide slides line)]
+        [(verbatim-slide? (car slides)) (cont-verbatim-slide slides line)]
         [(paragraph-slide? (car slides)) (cont-paragraph-slide slides line)]
         [(comment-line? line) slides]
         [else
@@ -186,27 +189,42 @@
           ,(render-notes node image-slide-notes)))
 
 (define (stage-paragraph-slide node)
-  (if (> (length (paragraph-slide-lines node)) 1)
-      `(slide
-        (para #:fill? #t
-              #:align 'left
-              ,(string-join (paragraph-slide-lines node) " "))
-        ,(render-notes node paragraph-slide-notes))
-      `(slide
-        (para #:fill? #t
-              #:align 'center
-              ,(string-join (paragraph-slide-lines node) " "))
-        ,(render-notes node paragraph-slide-notes))))
+  (define paragraphs (paragraph-slide-lines node))
+  (define alignment (if (> (length paragraphs) 1) 'left 'center))
+  (define (itemize p)
+    (para #:fill? #t
+          #:align alignment
+          p))
+  `(slide
+    ,@(for/list ([p paragraphs])
+        (itemize p))
+    ,(render-notes node paragraph-slide-notes)))
 
 (define (stage-list-slide node)
-  `(slide (text "LIST FPO")))
+  (define (itemize text bullet)
+    `(item #:bullet ,bullet
+           #:align 'left
+           #:fill? #t
+           ,text))
+  (define (bullets-for-items items type)
+    (for/list ([(_ i) (in-indexed items)])
+      (if (eq? type 'bullet)
+          bullet
+          (t (format "~a." i)))))
+  (define items (list-slide-items node))
+  `(slide
+    ,@(for/list ([item items]
+                 [bullet (bullets-for-items items (list-slide-type node))])
+        (itemize item bullet))
+    ,(render-notes node list-slide-notes)))
 
 (define (stage-quotation-slide node)
   `(slide
     (parameterize ([current-main-font (cons 'italic (current-main-font))])
       (para #:fill? #t
             #:align 'center
-            ,(string-join (quotation-slide-lines node) "\n")))
+            ,(format "``~a''"
+                     (string-join (quotation-slide-lines node) "\n"))))
     (para #:align 'right ,(quotation-slide-citation node))
     ,(render-notes node quotation-slide-notes)))
 
