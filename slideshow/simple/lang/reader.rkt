@@ -33,6 +33,9 @@
 (define (comment-line? line)
   (string-prefix? line "#"))
 
+(define (fenced-code-line? line)
+  (string-prefix? line "```"))
+
 (define (image-line? line)
   (string-prefix? line "!"))
 
@@ -87,6 +90,9 @@
                            'numeric
                            (current-location))
           (cdr slides))]
+   [(fenced-code-line? line)
+    (cons (make-paragraph-slide "" (current-location)  #:code? #t)
+          (cdr slides))]
    [(literal-line? line)
     (cons (make-paragraph-slide (substring line 1) (current-location))
           (cdr slides))]
@@ -105,6 +111,7 @@
    [(comment-line? line)
     (cons (image-slide-notes-append (car slides) (substring line 1))
           (cdr slides))]
+   [(fenced-code-line? line) (abort "improper start of fenced code")]
    [(non-empty-string? (string-trim line))
     (abort "can't add to an image slide")]
    [else (cons empty-slide slides)]))
@@ -126,12 +133,18 @@
          (list-slide-append (car slides) (strip-numlist-prefix line))
          (cdr slides))
         (abort "can't append bullet list item to numeric list slide."))]
+   [(fenced-code-line? line) (abort "improper start of fenced code")]
    [(non-empty-string? (string-trim line))
     (abort "improper addition to a list slide")]
    [else (cons empty-slide slides)]))
 
 (define (cont-paragraph-slide slides line)
   (cond
+   [(code-slide? (car slides))
+    (if (fenced-code-line? line)
+        (cons empty-slide slides)
+        (cons (paragraph-slide-append (car slides) line)
+              (cdr slides)))]
    [(comment-line? line)
     (cons (paragraph-slide-notes-append (car slides) (substring line 1))
           (cdr slides))]
@@ -141,6 +154,7 @@
    [(non-empty-string? (string-trim line))
     (cons (paragraph-slide-append (car slides) (string-trim line))
           (cdr slides))]
+   [(fenced-code-line? line) (abort "improper start of fenced code")]
    [else (cons empty-slide slides)]))
 
 (define (cont-quotation-slide slides line)
@@ -155,6 +169,7 @@
    [(quotation-line? line)
     (cons (quotation-slide-append (car slides) (substring line 2))
           (cdr slides))]
+   [(fenced-code-line? line) (abort "improper start of fenced code")]
    [else
     (if (non-empty-string? (string-trim line))
         (abort "can't add unknown to a quote slide")
@@ -223,6 +238,21 @@
         (itemize p))
     ,(render-notes node paragraph-slide-notes)))
 
+(define (stage-paragraph-code-slide node)
+  (define paragraphs (paragraph-slide-lines node))
+  (define alignment (if (> (length paragraphs) 1) 'left 'center))
+  (define (itemize p)
+    `(with-size ,base-font-size
+        (with-font 'modern
+           (para #:fill? #t
+                 #:align ',alignment
+                 ,p))
+))
+  `(slide
+    ,@(for/list ([p paragraphs])
+        (itemize p))
+    ,(render-notes node paragraph-slide-notes)))
+
 (define (stage-list-slide node)
   (define (itemize text bullet)
     `(with-size ,base-font-size
@@ -260,6 +290,7 @@
   (for/list ([node (reverse nodes)]
              #:unless (empty-slide? node))
     (cond
+     [(code-slide? node) (stage-paragraph-code-slide node)]
      [(paragraph-slide? node) (stage-paragraph-slide node)]
      [(image-slide? node) (stage-image-slide node)]
      [(list-slide? node) (stage-list-slide node)]

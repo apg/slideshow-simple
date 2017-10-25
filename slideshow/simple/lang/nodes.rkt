@@ -12,7 +12,8 @@
                                (location location?))]
           [struct paragraph-slide ((lines (listof string?))
                                    (notes (listof string?))
-                                   (location location?))]
+                                   (location location?)
+                                   (code? boolean?))]
           [struct quotation-slide ((lines (listof string?))
                                    (citation string?)
                                    (notes (listof string?))
@@ -24,12 +25,14 @@
           [struct verbatim-slide ((accum list?)
                                   (location location?))]
 
+          [code-slide? (-> any/c boolean?)]
+
           [make-image-slide (-> path-string?
                                 location?
                                 image-slide?)]
-          [make-paragraph-slide (-> string?
-                                    location?
-                                    paragraph-slide?)]
+          [make-paragraph-slide (->* (string?                                                                     location?)
+                                     (#:code? boolean?)
+                                     paragraph-slide?)]
           [make-quotation-slide (-> string?
                                     location?
                                     quotation-slide?)]
@@ -81,13 +84,16 @@
 (define (make-image-slide path location)
   (-image-slide path '() location))
 
-(struct paragraph-slide (lines notes location)
+(struct paragraph-slide (lines notes location code?)
         #:constructor-name -paragraph-slide
         #:transparent)
 
-(define (make-paragraph-slide line location)
-  (-paragraph-slide (list (string-trim line)) '() location))
+(define (code-slide? s)
+  (and (paragraph-slide? s)
+       (paragraph-slide-code? s)))
 
+(define (make-paragraph-slide line location #:code? [code? #f])
+  (-paragraph-slide (list (string-trim line)) '() location code?))
 
 (define (paragraph-slide-append p line)
   (define lines (paragraph-slide-lines p))
