@@ -6,7 +6,8 @@
          racket/contract/base)
 
 (provide (contract-out
-          [struct location ((line natural?) (column natural?))]
+          [struct location ((line exact-nonnegative-integer?)
+                            (column exact-nonnegative-integer?))]
           [struct image-slide ((path path-string?)
                                (notes (listof string?))
                                (location location?))]
