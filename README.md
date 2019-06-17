@@ -112,6 +112,10 @@ Quotes are popular in slides. slideshow/simple supports them.
 There is none. We'll likely add monospace support, cause that'd be nice
 for inline code.
 
+## Installation
+
+Run `raco pkg install` in a checkout.
+
 ## Contributing and Feedback
 
 I'm sure I can learn a lot from your feedback, ideas and
@@ -127,7 +131,7 @@ Andrew Gwozdziewycz web@apgwoz.com
 
 ## Copyright
 
-Copyright 2017, Andrew Gwozdziewycz, web@apgwoz.com
+Copyright © 2017, Andrew Gwozdziewycz, web@apgwoz.com
 
 Licensed under the GNU Lesser General Public License
 (LGPL). See [LICENSE.txt](./LICENSE.txt) for more information.
