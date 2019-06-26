@@ -220,8 +220,8 @@
 (define (stage-image-slide node)
   `(slide (scale-to-fit (bitmap
                          ,(image-slide-path node))
-                        (client-w)
-                        (client-h)
+                        (get-client-w)
+                        (get-client-h)
                         #:mode 'preserve)
           ,(render-notes node image-slide-notes)))
 
